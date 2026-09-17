@@ -289,3 +289,37 @@ jobs:
           make -j$NUMCPUS --load-average=$NUMCPUS
           ctest -j$NUMCPUS
           popd
+  linux-loongarch64:
+    if: ${{!contains(github.ref, 'refs/tags/')}}
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Check out SIMDe
+        uses: actions/checkout@v4
+        with:
+          repository: simd-everywhere/simde
+          ref: master
+          path: simde
+      - name: Set up build
+        run: |
+          sudo apt update
+          sudo apt -y install gcc-14-loongarch64-linux-gnu qemu-user
+      - name: Build
+        env:
+          CTEST_OUTPUT_ON_FAILURE: 1
+        run: |
+          mkdir build
+          pushd build
+          cmake -G"Unix Makefiles" -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=loongarch64 \
+            -DCMAKE_C_COMPILER=loongarch64-linux-gnu-gcc-14 \
+            -DCMAKE_CROSSCOMPILING_EMULATOR="qemu-loongarch64;-L;/usr/loongarch64-linux-gnu;-cpu;la464" \
+            -DCMAKE_C_FLAGS="-I$GITHUB_WORKSPACE/simde -mlsx" \
+            -DREQUIRE_SIMD=1 -DWITH_SIMDE=1 \
+            ..
+          export NUMCPUS=`grep -c '^processor' /proc/cpuinfo`
+          make -j$NUMCPUS --load-average=$NUMCPUS
+          ctest -j$NUMCPUS
+          JSIMD_FORCENONE=1 ctest -j$NUMCPUS
+          popd
