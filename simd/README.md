@@ -106,6 +106,9 @@ modules:
 - `JSIMD_FORCEMMI=1` (Loongson) force-enables the MMI SIMD modules, bypassing
   **/proc/cpuinfo** feature detection (which may be unreliable in QEMU and
   other emulation/virtualization environments.)
+- `JSIMD_FORCELSX=1` (LoongArch) enables only the LSX SIMD modules, even if the
+  CPU supports LASX.
+- `JSIMD_FORCELASX=1` (LoongArch) enables only the LASX SIMD modules.
 
 The **simdcoverage** program reports which SIMD modules will be used, taking
 into account the current architecture, detected CPU features, and

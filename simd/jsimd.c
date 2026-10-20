@@ -91,6 +91,11 @@ init_simd(j_common_ptr cinfo)
 #elif SIMD_ARCHITECTURE == MIPS64
   if (!GETENV_S(env, 2, "JSIMD_FORCEMMI") && !strcmp(env, "1"))
     simd_support = JSIMD_MMI;
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+  if (!GETENV_S(env, 2, "JSIMD_FORCELSX") && !strcmp(env, "1"))
+    simd_support &= JSIMD_LSX;
+  if (!GETENV_S(env, 2, "JSIMD_FORCELASX") && !strcmp(env, "1"))
+    simd_support &= JSIMD_LASX;
 #endif
   if (!GETENV_S(env, 2, "JSIMD_FORCENONE") && !strcmp(env, "1"))
     simd_support = 0;
@@ -164,6 +169,17 @@ jsimd_set_rgb_ycc(j_compress_ptr cinfo)
     SET_SIMD_EXTRGB_COLOR_CONVERTER(ycc, mmi);
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    SET_SIMD_EXTRGB_COLOR_CONVERTER(ycc, lasx);
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    SET_SIMD_EXTRGB_COLOR_CONVERTER(ycc, lsx);
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -220,6 +236,17 @@ jsimd_set_rgb_gray(j_compress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     SET_SIMD_EXTRGB_COLOR_CONVERTER(gray, mmi);
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    SET_SIMD_EXTRGB_COLOR_CONVERTER(gray, lasx);
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    SET_SIMD_EXTRGB_COLOR_CONVERTER(gray, lsx);
+    return JSIMD_LSX;
   }
 #endif
 
@@ -286,6 +313,17 @@ jsimd_set_ycc_rgb(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     SET_SIMD_EXTRGB_COLOR_DECONVERTER(mmi);
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    SET_SIMD_EXTRGB_COLOR_DECONVERTER(lasx);
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    SET_SIMD_EXTRGB_COLOR_DECONVERTER(lsx);
+    return JSIMD_LSX;
   }
 #endif
 
@@ -368,6 +406,17 @@ jsimd_set_h2v1_downsample(j_compress_ptr cinfo)
     cinfo->downsample->h2v1_downsample_simd = jsimd_h2v1_downsample_rvv;
     return JSIMD_RVV;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    cinfo->downsample->h2v1_downsample_simd = jsimd_h2v1_downsample_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    cinfo->downsample->h2v1_downsample_simd = jsimd_h2v1_downsample_lsx;
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -433,6 +482,17 @@ jsimd_set_h2v2_downsample(j_compress_ptr cinfo)
     cinfo->downsample->h2v2_downsample_simd = jsimd_h2v2_downsample_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    cinfo->downsample->h2v2_downsample_simd = jsimd_h2v2_downsample_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    cinfo->downsample->h2v2_downsample_simd = jsimd_h2v2_downsample_lsx;
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -493,6 +553,17 @@ jsimd_set_h2v1_upsample(j_decompress_ptr cinfo)
     cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_upsample_rvv;
     return JSIMD_RVV;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_upsample_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_upsample_lsx;
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -550,6 +621,17 @@ jsimd_set_h2v2_upsample(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_RVV) {
     cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_upsample_rvv;
     return JSIMD_RVV;
+  }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_upsample_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_upsample_lsx;
+    return JSIMD_LSX;
   }
 #endif
 
@@ -616,6 +698,17 @@ jsimd_set_h2v1_fancy_upsample(j_decompress_ptr cinfo)
     cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_fancy_upsample_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_fancy_upsample_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_fancy_upsample_lsx;
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -680,6 +773,17 @@ jsimd_set_h2v2_fancy_upsample(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_fancy_upsample_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_fancy_upsample_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_fancy_upsample_lsx;
+    return JSIMD_LSX;
   }
 #endif
 
@@ -781,6 +885,17 @@ jsimd_set_h2v1_merged_upsample(j_decompress_ptr cinfo)
     SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, mmi);
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, lasx);
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, lsx);
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -845,6 +960,17 @@ jsimd_set_h2v2_merged_upsample(j_decompress_ptr cinfo)
     SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, mmi);
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, lasx);
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, lsx);
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -901,6 +1027,17 @@ jsimd_set_convsamp(j_compress_ptr cinfo, convsamp_method_ptr *method)
   if (cinfo->master->simd_support & JSIMD_RVV) {
     *method = jsimd_convsamp_rvv;
     return JSIMD_RVV;
+  }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    *method = jsimd_convsamp_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    *method = jsimd_convsamp_lsx;
+    return JSIMD_LSX;
   }
 #endif
 
@@ -987,6 +1124,17 @@ jsimd_set_fdct_islow(j_compress_ptr cinfo, forward_DCT_method_ptr *method)
     *method = jsimd_fdct_islow_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    *method = jsimd_fdct_islow_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    *method = jsimd_fdct_islow_lsx;
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -1032,6 +1180,17 @@ jsimd_set_fdct_ifast(j_compress_ptr cinfo, forward_DCT_method_ptr *method)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     *method = jsimd_fdct_ifast_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    *method = jsimd_fdct_ifast_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    *method = jsimd_fdct_ifast_lsx;
+    return JSIMD_LSX;
   }
 #endif
 
@@ -1109,6 +1268,17 @@ jsimd_set_quantize(j_compress_ptr cinfo, quantize_method_ptr *method)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     *method = jsimd_quantize_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    *method = jsimd_quantize_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    *method = jsimd_quantize_lsx;
+    return JSIMD_LSX;
   }
 #endif
 
@@ -1201,6 +1371,17 @@ jsimd_set_idct_islow(j_decompress_ptr cinfo)
     cinfo->idct->idct_simd = jsimd_idct_islow_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    cinfo->idct->idct_simd = jsimd_idct_islow_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    cinfo->idct->idct_simd = jsimd_idct_islow_lsx;
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -1266,6 +1447,17 @@ jsimd_set_idct_ifast(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     cinfo->idct->idct_simd = jsimd_idct_ifast_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    cinfo->idct->idct_simd = jsimd_idct_ifast_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    cinfo->idct->idct_simd = jsimd_idct_ifast_lsx;
+    return JSIMD_LSX;
   }
 #endif
 
@@ -1367,6 +1559,17 @@ jsimd_set_idct_2x2(j_decompress_ptr cinfo)
     cinfo->idct->idct_2x2_simd = jsimd_idct_2x2_neon;
     return JSIMD_NEON;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    cinfo->idct->idct_2x2_simd = jsimd_idct_2x2_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    cinfo->idct->idct_2x2_simd = jsimd_idct_2x2_lsx;
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -1416,6 +1619,17 @@ jsimd_set_idct_4x4(j_decompress_ptr cinfo)
     cinfo->idct->idct_4x4_simd = jsimd_idct_4x4_neon;
     return JSIMD_NEON;
   }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+#ifdef JSIMD_WITH_LASX
+  if (cinfo->master->simd_support & JSIMD_LASX) {
+    cinfo->idct->idct_4x4_simd = jsimd_idct_4x4_lasx;
+    return JSIMD_LASX;
+  }
+#endif
+  if (cinfo->master->simd_support & JSIMD_LSX) {
+    cinfo->idct->idct_4x4_simd = jsimd_idct_4x4_lsx;
+    return JSIMD_LSX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -1456,6 +1670,19 @@ jsimd_set_huff_encode_one_block(j_compress_ptr cinfo)
     cinfo->entropy->huff_encode_one_block_simd =
       jsimd_huff_encode_one_block_neon;
     return JSIMD_NEON;
+  }
+#elif SIMD_ARCHITECTURE == LOONGARCH64
+  /* NOTE: the LASX implementation of this module is measurably slower than
+   * both the LSX implementation and the scalar C implementation, because the
+   * encoder is latency-bound and the LASX zig-zag shuffles are preceded by a
+   * long chain of 256-bit constant loads.  Thus, the LSX implementation is
+   * always used for this algorithm, even on CPUs that support LASX.
+   */
+  if ((cinfo->master->simd_support & JSIMD_LSX) &&
+      cinfo->master->simd_huffman) {
+    cinfo->entropy->huff_encode_one_block_simd =
+      jsimd_huff_encode_one_block_lsx;
+    return JSIMD_LSX;
   }
 #endif
 

@@ -556,6 +556,125 @@ endif()
 
 
 ###############################################################################
+# LoongArch 64-bit (Intrinsics)
+###############################################################################
+
+elseif(CPU_TYPE STREQUAL "loongarch64")
+
+set(SIMD_ARCHITECTURE LOONGARCH64 PARENT_SCOPE)
+
+set(CMAKE_REQUIRED_FLAGS -mlsx)
+
+check_c_source_compiles("
+  #include <lsxintrin.h>
+  int main(void) {
+    __m128i a, b, c;
+    a = __lsx_vadd_w(b, c);
+    return 0;
+  }" HAVE_LSX)
+
+unset(CMAKE_REQUIRED_FLAGS)
+
+set(CMAKE_REQUIRED_FLAGS -mlasx)
+
+check_c_source_compiles("
+  #include <lasxintrin.h>
+  int main(void) {
+    __m256i a, b, c;
+    a = __lasx_xvadd_w(b, c);
+    return 0;
+  }" HAVE_LASX)
+
+unset(CMAKE_REQUIRED_FLAGS)
+
+if(NOT HAVE_LSX)
+  simd_fail("SIMD extensions not available for this CPU (LoongArch64)")
+  return()
+endif()
+
+# The LSX and LASX sources must be compiled using the corresponding compiler
+# flag, because otherwise the compiler is free to generate 256-bit instructions
+# in the 128-bit code (rendering that code unusable on LSX-only CPUs) and to
+# spill into the upper 128 bits of the vector registers.
+
+set(SIMD_SOURCES_LSX loongarch64/jccolor-lsx.c loongarch64/jcgray-lsx.c
+  loongarch64/jcsample-lsx.c loongarch64/jdcolor-lsx.c loongarch64/jdmerge-lsx.c
+  loongarch64/jdsample-lsx.c loongarch64/jfdctfst-lsx.c
+  loongarch64/jfdctint-lsx.c loongarch64/jidctfst-lsx.c
+  loongarch64/jidctint-lsx.c loongarch64/jidctred-lsx.c
+  loongarch64/jquanti-lsx.c loongarch64/jchuff-lsx.c)
+
+set(SIMD_SOURCES_LASX "")
+if(HAVE_LASX)
+  set(SIMD_SOURCES_LASX loongarch64/jccolor-lasx.c
+    loongarch64/jcgray-lasx.c loongarch64/jcsample-lasx.c
+    loongarch64/jdcolor-lasx.c loongarch64/jdmerge-lasx.c
+    loongarch64/jdsample-lasx.c loongarch64/jfdctfst-lasx.c
+    loongarch64/jfdctint-lasx.c loongarch64/jidctfst-lasx.c
+    loongarch64/jidctint-lasx.c loongarch64/jidctred-lasx.c
+    loongarch64/jquanti-lasx.c loongarch64/jchuff-lasx.c)
+endif()
+
+set(SIMD_SOURCES ${SIMD_SOURCES_LSX} ${SIMD_SOURCES_LASX})
+
+foreach(file ${SIMD_SOURCES})
+  set(OBJECT_DEPENDS "")
+  if(${file} MATCHES jccolor)
+    string(REGEX REPLACE "jccolor" "jccolext" DEPFILE ${file})
+    set(OBJECT_DEPENDS ${OBJECT_DEPENDS}
+      ${CMAKE_CURRENT_SOURCE_DIR}/${DEPFILE})
+  endif()
+  if(${file} MATCHES jcgray)
+    string(REGEX REPLACE "jcgray" "jcgryext" DEPFILE ${file})
+    set(OBJECT_DEPENDS ${OBJECT_DEPENDS}
+      ${CMAKE_CURRENT_SOURCE_DIR}/${DEPFILE})
+  endif()
+  if(${file} MATCHES jdcolor)
+    string(REGEX REPLACE "jdcolor" "jdcolext" DEPFILE ${file})
+    set(OBJECT_DEPENDS ${OBJECT_DEPENDS}
+      ${CMAKE_CURRENT_SOURCE_DIR}/${DEPFILE})
+  endif()
+  if(${file} MATCHES jdmerge)
+    string(REGEX REPLACE "jdmerge" "jdmrgext" DEPFILE ${file})
+    set(OBJECT_DEPENDS ${OBJECT_DEPENDS}
+      ${CMAKE_CURRENT_SOURCE_DIR}/${DEPFILE})
+  endif()
+  set(OBJECT_DEPENDS ${OBJECT_DEPENDS} ${INC_FILES})
+  set_source_files_properties(${file} PROPERTIES OBJECT_DEPENDS
+    "${OBJECT_DEPENDS}")
+endforeach()
+
+set_source_files_properties(${SIMD_SOURCES_LSX} PROPERTIES
+  COMPILE_FLAGS -mlsx)
+
+if(SIMD_SOURCES_LASX)
+  set_source_files_properties(${SIMD_SOURCES_LASX} PROPERTIES
+    COMPILE_FLAGS -mlasx)
+endif()
+
+if(UNIX)
+  include(CheckSymbolExists)
+  check_symbol_exists(getauxval sys/auxv.h HAVE_GETAUXVAL)
+  if(HAVE_GETAUXVAL)
+    set_source_files_properties(loongarch64/jsimdcpu.c PROPERTIES
+      COMPILE_DEFINITIONS HAVE_GETAUXVAL)
+  endif()
+endif()
+
+add_library(simd OBJECT ${SIMD_SOURCES} jsimd.c loongarch64/jsimdcpu.c)
+
+if(HAVE_LASX)
+  # Tells the SIMD dispatcher that the LASX modules are available.  Otherwise
+  # it must not reference them, because they weren't compiled.
+  target_compile_definitions(simd PRIVATE JSIMD_WITH_LASX)
+endif()
+
+if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
+  set_target_properties(simd PROPERTIES POSITION_INDEPENDENT_CODE 1)
+endif()
+
+
+###############################################################################
 # None
 ###############################################################################
 
